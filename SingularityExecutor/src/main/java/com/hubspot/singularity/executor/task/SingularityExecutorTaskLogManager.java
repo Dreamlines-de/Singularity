@@ -17,6 +17,7 @@ import com.hubspot.singularity.SingularityTaskId;
 import com.hubspot.singularity.executor.TemplateManager;
 import com.hubspot.singularity.executor.config.SingularityExecutorConfiguration;
 import com.hubspot.singularity.executor.models.LogrotateTemplateContext;
+import com.hubspot.singularity.runner.base.config.SingularityRunnerBaseConfiguration;
 import com.hubspot.singularity.runner.base.shared.JsonObjectFileHelper;
 import com.hubspot.singularity.runner.base.shared.S3UploadMetadata;
 import com.hubspot.singularity.runner.base.shared.SimpleProcessManager;
@@ -26,15 +27,17 @@ public class SingularityExecutorTaskLogManager {
 
   private final SingularityExecutorTaskDefinition taskDefinition;
   private final TemplateManager templateManager;
-  private final SingularityExecutorConfiguration configuration;
+  private final SingularityRunnerBaseConfiguration baseConfiguration;
+  private final SingularityExecutorConfiguration executorConfiguration;
   private final Logger log;
   private final JsonObjectFileHelper jsonObjectFileHelper;
 
-  public SingularityExecutorTaskLogManager(SingularityExecutorTaskDefinition taskDefinition, TemplateManager templateManager, SingularityExecutorConfiguration configuration, Logger log, JsonObjectFileHelper jsonObjectFileHelper) {
+  public SingularityExecutorTaskLogManager(SingularityExecutorTaskDefinition taskDefinition, TemplateManager templateManager, SingularityRunnerBaseConfiguration baseConfiguration, SingularityExecutorConfiguration executorConfiguration, Logger log, JsonObjectFileHelper jsonObjectFileHelper) {
     this.log = log;
     this.taskDefinition = taskDefinition;
     this.templateManager = templateManager;
-    this.configuration = configuration;
+    this.baseConfiguration = baseConfiguration;
+    this.executorConfiguration = executorConfiguration;
     this.jsonObjectFileHelper = jsonObjectFileHelper;
   }
 
@@ -47,7 +50,7 @@ public class SingularityExecutorTaskLogManager {
 
   private void writeLogrotateFile() {
     log.info("Writing logrotate configuration file to {}", getLogrotateConfPath());
-    templateManager.writeLogrotateFile(getLogrotateConfPath(), new LogrotateTemplateContext(configuration, taskDefinition));
+    templateManager.writeLogrotateFile(getLogrotateConfPath(), new LogrotateTemplateContext(executorConfiguration, taskDefinition));
   }
 
   public boolean teardown() {
@@ -67,11 +70,11 @@ public class SingularityExecutorTaskLogManager {
   }
 
   private void copyLogTail() {
-    if (configuration.getTailLogLinesToSave() <= 0) {
+    if (executorConfiguration.getTailLogLinesToSave() <= 0) {
       return;
     }
 
-    final Path tailOfLogPath = taskDefinition.getTaskDirectoryPath().resolve(configuration.getServiceFinishedTailLog());
+    final Path tailOfLogPath = taskDefinition.getTaskDirectoryPath().resolve(executorConfiguration.getServiceFinishedTailLog());
 
     if (Files.exists(tailOfLogPath)) {
       log.debug("{} already existed, skipping tail", tailOfLogPath);
@@ -81,13 +84,13 @@ public class SingularityExecutorTaskLogManager {
     final List<String> cmd = ImmutableList.of(
         "tail",
         "-n",
-        Integer.toString(configuration.getTailLogLinesToSave()),
+        Integer.toString(executorConfiguration.getTailLogLinesToSave()),
         taskDefinition.getServiceLogOut());
 
     try {
       new SimpleProcessManager(log).runCommand(cmd, Redirect.to(tailOfLogPath.toFile()));
     } catch (Throwable t) {
-      log.error("Failed saving tail of log {} to {}", taskDefinition.getServiceLogOut(), configuration.getServiceFinishedTailLog(), t);
+      log.error("Failed saving tail of log {} to {}", taskDefinition.getServiceLogOut(), executorConfiguration.getServiceFinishedTailLog(), t);
     }
   }
 
@@ -110,11 +113,11 @@ public class SingularityExecutorTaskLogManager {
     }
 
     final List<String> command = ImmutableList.of(
-        configuration.getLogrotateCommand(),
-        "-f",
-        "-s",
-        taskDefinition.getLogrotateStateFilePath().toString(),
-        getLogrotateConfPath().toString());
+            executorConfiguration.getLogrotateCommand(),
+            "-f",
+            "-s",
+            taskDefinition.getLogrotateStateFilePath().toString(),
+            getLogrotateConfPath().toString());
 
     try {
       new SimpleProcessManager(log).runCommand(command);
@@ -146,7 +149,7 @@ public class SingularityExecutorTaskLogManager {
     }
 
     final TailMetadata tailMetadata = new TailMetadata(taskDefinition.getServiceLogOut(), taskDefinition.getExecutorData().getLoggingTag().get(), taskDefinition.getExecutorData().getLoggingExtraFields(), finished);
-    final Path path = TailMetadata.getTailMetadataPath(configuration.getLogMetadataDirectory(), configuration.getLogMetadataSuffix(), tailMetadata);
+    final Path path = TailMetadata.getTailMetadataPath(baseConfiguration.getLogWatcherMetadataDirectory(), baseConfiguration.getLogWatcherMetadataSuffix(), tailMetadata);
 
     return jsonObjectFileHelper.writeObject(tailMetadata, path, log);
   }
@@ -157,14 +160,14 @@ public class SingularityExecutorTaskLogManager {
    * @return file glob String.
    */
   private String getS3Glob() {
-    List<String> fileNames = new ArrayList<>(configuration.getAdditionalS3FilesToBackup());
+    List<String> fileNames = new ArrayList<>(executorConfiguration.getAdditionalS3FilesToBackup());
     fileNames.add(taskDefinition.getServiceLogOutPath().getFileName().toString());
 
     return String.format("{%s}*.gz*", Joiner.on(",").join(fileNames));
   }
 
   private String getS3KeyPattern() {
-    String s3KeyPattern = configuration.getS3KeyPattern();
+    String s3KeyPattern = executorConfiguration.getS3KeyPattern();
 
     final SingularityTaskId singularityTaskId = getSingularityTaskId();
 
@@ -176,18 +179,18 @@ public class SingularityExecutorTaskLogManager {
   }
 
   public Path getLogrotateConfPath() {
-    return configuration.getLogrotateConfDirectory().resolve(taskDefinition.getTaskId());
+    return executorConfiguration.getLogrotateConfDirectory().resolve(taskDefinition.getTaskId());
   }
 
   private boolean writeS3MetadataFile(boolean finished) {
-    Path logrotateDirectory = taskDefinition.getServiceLogOutPath().getParent().resolve(configuration.getLogrotateToDirectory());
+    Path logrotateDirectory = taskDefinition.getServiceLogOutPath().getParent().resolve(executorConfiguration.getLogrotateToDirectory());
 
-    S3UploadMetadata s3UploadMetadata = new S3UploadMetadata(logrotateDirectory.toString(), getS3Glob(), configuration.getS3Bucket(), getS3KeyPattern(), finished, Optional.<String> absent(), Optional.<Integer> absent(), Optional.<String> absent(),
+    S3UploadMetadata s3UploadMetadata = new S3UploadMetadata(logrotateDirectory.toString(), getS3Glob(), executorConfiguration.getS3Bucket(), getS3KeyPattern(), finished, Optional.<String> absent(), Optional.<Integer> absent(), Optional.<String> absent(),
         Optional.<String> absent(), Optional.<Long> absent());
 
-    String s3UploadMetadataFileName = String.format("%s%s", taskDefinition.getTaskId(), configuration.getS3MetadataSuffix());
+    String s3UploadMetadataFileName = String.format("%s%s", taskDefinition.getTaskId(), baseConfiguration.getS3UploaderMetadataSuffix());
 
-    Path s3UploadMetadataPath = configuration.getS3MetadataDirectory().resolve(s3UploadMetadataFileName);
+    Path s3UploadMetadataPath = baseConfiguration.getS3UploaderMetadataDirectory().resolve(s3UploadMetadataFileName);
 
     return jsonObjectFileHelper.writeObject(s3UploadMetadata, s3UploadMetadataPath, log);
   }

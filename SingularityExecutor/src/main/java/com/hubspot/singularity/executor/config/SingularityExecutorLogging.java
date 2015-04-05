@@ -7,17 +7,17 @@ import ch.qos.logback.classic.LoggerContext;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import com.hubspot.singularity.runner.base.config.SingularityRunnerBaseLogging;
+import com.hubspot.singularity.runner.base.config.SingularityRunnerBaseConfiguration;
 
 @Singleton
 public class SingularityExecutorLogging {
 
   private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(SingularityExecutorLogging.class);
 
-  private final SingularityRunnerBaseLogging baseLogging;
+  private final SingularityRunnerBaseConfiguration baseLogging;
 
   @Inject
-  public SingularityExecutorLogging(SingularityRunnerBaseLogging baseLogging) {
+  public SingularityExecutorLogging(SingularityRunnerBaseConfiguration baseLogging) {
     this.baseLogging = baseLogging;
   }
 

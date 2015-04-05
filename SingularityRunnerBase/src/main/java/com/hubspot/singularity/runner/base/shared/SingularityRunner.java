@@ -15,7 +15,7 @@ public class SingularityRunner {
   private static final Logger LOG = LoggerFactory.getLogger(SingularityDriver.class);
 
   @SuppressFBWarnings("DM_EXIT")
-  public void run(Iterable<? extends Module> modules) {
+  public void run(Module... modules) {
     final Injector injector = Guice.createInjector(Stage.PRODUCTION, modules);
 
     final SingularityDriver driver = injector.getInstance(SingularityDriver.class);

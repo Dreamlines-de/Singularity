@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.hubspot.singularity.runner.base.config.SingularityRunnerBaseLogging;
+import com.hubspot.singularity.runner.base.config.SingularityRunnerBaseConfiguration;
 
 /**
  *
@@ -151,7 +151,7 @@ public class S3UploadMetadata {
       return optional.toString();
     }
 
-    return SingularityRunnerBaseLogging.obfuscateValue(optional.get());
+    return SingularityRunnerBaseConfiguration.obfuscateValue(optional.get());
   }
 
   @Override

@@ -11,10 +11,9 @@ import com.google.inject.Injector;
 import com.google.inject.Stage;
 import com.google.inject.name.Named;
 import com.hubspot.mesos.JavaUtils;
-import com.hubspot.singularity.executor.config.SingularityExecutorConfigurationLoader;
+import com.hubspot.singularity.executor.config.SingularityExecutorConfiguration;
 import com.hubspot.singularity.executor.config.SingularityExecutorModule;
 import com.hubspot.singularity.runner.base.config.SingularityRunnerBaseModule;
-import com.hubspot.singularity.s3.base.config.SingularityS3ConfigurationLoader;
 
 public class SingularityExecutorRunner {
 
@@ -24,7 +23,9 @@ public class SingularityExecutorRunner {
     final long start = System.currentTimeMillis();
 
     try {
-      final Injector injector = Guice.createInjector(Stage.PRODUCTION, new SingularityRunnerBaseModule(new SingularityS3ConfigurationLoader(), new SingularityExecutorConfigurationLoader()), new SingularityExecutorModule());
+      final Injector injector = Guice.createInjector(Stage.PRODUCTION,
+              new SingularityRunnerBaseModule(),
+              new SingularityExecutorModule());
       final SingularityExecutorRunner executorRunner = injector.getInstance(SingularityExecutorRunner.class);
 
       final Protos.Status driverStatus = executorRunner.run();

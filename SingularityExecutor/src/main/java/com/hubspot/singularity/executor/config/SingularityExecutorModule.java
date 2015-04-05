@@ -2,6 +2,9 @@ package com.hubspot.singularity.executor.config;
 
 import java.io.IOException;
 
+import javax.validation.Validator;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.google.inject.AbstractModule;
@@ -10,10 +13,12 @@ import com.google.inject.Singleton;
 import com.google.inject.name.Named;
 import com.hubspot.singularity.executor.handlebars.BashEscapedHelper;
 import com.hubspot.singularity.executor.handlebars.IfPresentHelper;
+import com.hubspot.singularity.runner.base.config.SingularityRunnerConfigurationUtils;
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfig;
 
 public class SingularityExecutorModule extends AbstractModule {
+  public static final String BASE_CONFIG_PATH = "/etc/singularity.executor";
 
   public static final String RUNNER_TEMPLATE = "runner.sh";
   public static final String ENVIRONMENT_TEMPLATE = "deploy.env";
@@ -21,7 +26,8 @@ public class SingularityExecutorModule extends AbstractModule {
   public static final String LOCAL_DOWNLOAD_HTTP_CLIENT = "SingularityExecutorModule.local.download.http.client";
 
   @Override
-  protected void configure() {}
+  protected void configure() {
+  }
 
   @Provides
   @Singleton
@@ -65,4 +71,9 @@ public class SingularityExecutorModule extends AbstractModule {
     return handlebars;
   }
 
+  @Provides
+  @Singleton
+  public SingularityExecutorConfiguration providesConfiguration(ObjectMapper objectMapper, Validator validator) throws Exception {
+    return SingularityRunnerConfigurationUtils.buildConfiguration(SingularityExecutorConfiguration.class, objectMapper, validator, BASE_CONFIG_PATH);
+  }
 }

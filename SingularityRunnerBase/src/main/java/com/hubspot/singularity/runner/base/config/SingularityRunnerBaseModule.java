@@ -1,44 +1,35 @@
 package com.hubspot.singularity.runner.base.config;
 
 import java.lang.management.ManagementFactory;
-import java.util.Properties;
+
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorFactory;
+import javax.validation.Validation;
+import javax.validation.Validator;
+import javax.validation.ValidatorFactory;
 
 import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ObjectArrays;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
-import com.google.inject.name.Names;
 import com.hubspot.mesos.JavaUtils;
 
 public class SingularityRunnerBaseModule extends AbstractModule {
+  public static final String BASE_CONFIG_PATH = "/etc/singularity.base";
 
   public static final String PROCESS_NAME = "process.name";
 
-  private final SingularityConfigurationLoader[] configurations;
-
-  public SingularityRunnerBaseModule(SingularityConfigurationLoader... configurations) {
-    this.configurations = ObjectArrays.concat(new SingularityRunnerBaseConfigurationLoader(), configurations);
-  }
-
   @Override
   protected void configure() {
-    Properties properties = new Properties();
+    final ObjectMapper objectMapper = JavaUtils.newObjectMapper();
 
-    for (SingularityConfigurationLoader configurationLoader : configurations) {
-      configurationLoader.bindAllDefaults(properties);
-    }
+    final ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory();
 
-    for (SingularityConfigurationLoader configurationLoader : configurations) {
-      configurationLoader.bindPropertiesFile(properties);
-    }
-
-    Names.bindProperties(binder(), properties);
-
-    bind(Properties.class).toInstance(properties);
-    bind(SingularityRunnerBaseLogging.class).asEagerSingleton();
+    bind(ObjectMapper.class).toInstance(objectMapper);
+    bind(MetricRegistry.class).toInstance(new MetricRegistry());
+    bind(Validator.class).toInstance(validatorFactory.getValidator());
   }
 
   @Provides
@@ -52,16 +43,7 @@ public class SingularityRunnerBaseModule extends AbstractModule {
     return name;
   }
 
-  @Provides
-  @Singleton
-  public ObjectMapper getObjectMapper() {
-    return JavaUtils.newObjectMapper();
+  public SingularityRunnerBaseConfiguration providesConfiguration(ObjectMapper objectMapper, Validator validator) throws Exception {
+    return SingularityRunnerConfigurationUtils.buildConfiguration(SingularityRunnerBaseConfiguration.class, objectMapper, validator, BASE_CONFIG_PATH);
   }
-
-  @Provides
-  @Singleton
-  public MetricRegistry getMetricRegistry() {
-    return new MetricRegistry();
-  }
-
 }
