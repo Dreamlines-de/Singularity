@@ -13,7 +13,7 @@ class TailView extends View
             'click .tail-top-button': 'goToTop'
             'click .tail-bottom-button': 'goToBottom'
 
-    initialize: ({@taskId, @path, firstRequest}) ->
+    initialize: ({@taskId, @path, @ajaxError, firstRequest}) ->
         @filename = _.last @path.split '/'
 
         @listenTo @collection, 'reset',       @dumpContents
@@ -31,12 +31,19 @@ class TailView extends View
 
         @listenTo @model, 'change:isStillRunning', => @stopTailing() unless @model.get 'isStillRunning'
 
-        @ajaxError = status: false
-        @listenTo @collection, 'ajaxError', @handleAjaxError
+        @collectionRefreshInterval = null
+
+        @listenTo @ajaxError, 'change:present', @render
+        @listenTo @ajaxError, 'change:shouldRefresh', =>
+            if @ajaxError.get('present') and @ajaxError.get('shouldRefresh')
+                @collectionRefreshInterval = setInterval =>
+                    @collection.fetchInitialData()
+                , 2000
+
         
     render: =>
         breadcrumbs = utils.pathToBreadcrumbs @path
-        @$el.html @template {@taskId, @filename, breadcrumbs, @ajaxError}
+        @$el.html @template {@taskId, @filename, breadcrumbs, ajaxError: @ajaxError.toJSON()}
 
         @$contents = @$ '.tail-contents'
         @$linesWrapper = @$contents.children('.lines-wrapper')
@@ -134,7 +141,8 @@ class TailView extends View
 
     afterInitialData: =>
         # Remove any `data is loading` message
-        clearInterval @dataInterval
+        if @collectionRefreshInterval
+            clearInterval @collectionRefreshInterval
         @dumpContents()
 
         setTimeout =>
@@ -198,19 +206,6 @@ class TailView extends View
 
         if state.changed.moreToFetch?
             @$('.tail-fetching-end').toggle(state.changed.moreToFetch)
-
-    # If we get a 400 we can render a nicer
-    # message that the file is being generated
-    handleAjaxError: (response) =>
-        @ajaxError =
-            status: true
-            errorType: response.errorType
-        
-        @dataInterval = setInterval =>
-            @collection.fetchInitialData()
-        , 2000
-
-        @render()
 
 
 module.exports = TailView
